@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import com.kappa.facemlkit.detector.FaceDetector
 import com.kappa.facemlkit.models.FaceDetectionResult
+import com.kappa.facemlkit.models.FaceQualityResult
 import com.google.mlkit.vision.face.Face
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -77,9 +78,24 @@ class FaceMLKit private constructor(context: Context) {
      */
     fun extractLargestFace(bitmap: Bitmap, callback: (Bitmap?) -> Unit) {
         coroutineScope.launch {
-            val face = extractLargestFace(bitmap)
+            val result = faceDetector.extractLargestFace(bitmap)
             withContext(Dispatchers.Main) {
-                callback(face)
+                callback(result.faceBitmap)
+            }
+        }
+    }
+
+    /**
+     * Extract the largest face from the input image with quality check (callback version)
+     *
+     * @param bitmap Input image
+     * @param callback Callback function that receives the processed face bitmap and quality result
+     */
+    fun extractLargestFaceWithQuality(bitmap: Bitmap, callback: (Bitmap?, FaceQualityResult) -> Unit) {
+        coroutineScope.launch {
+            val result = faceDetector.extractLargestFace(bitmap)
+            withContext(Dispatchers.Main) {
+                callback(result.faceBitmap, result.qualityResult)
             }
         }
     }
@@ -91,7 +107,18 @@ class FaceMLKit private constructor(context: Context) {
      * @return The processed face bitmap or null if no face detected
      */
     suspend fun extractLargestFace(bitmap: Bitmap): Bitmap? {
-        return faceDetector.extractLargestFace(bitmap)
+        return faceDetector.extractLargestFace(bitmap).faceBitmap
+    }
+
+    /**
+     * Extract the largest face from the input image with quality assessment (suspend function version)
+     *
+     * @param bitmap Input image
+     * @return Pair containing the processed face bitmap and quality assessment
+     */
+    suspend fun extractLargestFaceWithQuality(bitmap: Bitmap): Pair<Bitmap?, FaceQualityResult> {
+        val result = faceDetector.extractLargestFace(bitmap)
+        return Pair(result.faceBitmap, result.qualityResult)
     }
 
     /**
@@ -100,7 +127,7 @@ class FaceMLKit private constructor(context: Context) {
      * @param bitmap Input image with face
      * @param callback Callback with quality assessment result
      */
-    fun assessFaceQuality(bitmap: Bitmap, callback: (Boolean) -> Unit) {
+    fun assessFaceQuality(bitmap: Bitmap, callback: (FaceQualityResult) -> Unit) {
         coroutineScope.launch {
             val result = assessFaceQuality(bitmap)
             withContext(Dispatchers.Main) {
@@ -113,34 +140,10 @@ class FaceMLKit private constructor(context: Context) {
      * Assess if the face meets quality criteria (suspend function version)
      *
      * @param bitmap Input image with face
-     * @return Quality assessment result
+     * @return Comprehensive quality assessment result
      */
-    suspend fun assessFaceQuality(bitmap: Bitmap): Boolean {
-        val faces = faceDetector.detectFaces(bitmap)
-
-        return if (faces.isNotEmpty()) {
-            val face = faces.maxByOrNull {
-                it.boundingBox.width() * it.boundingBox.height()
-            }
-
-            face?.let {
-                // Basic quality check - face size relative to image
-                val faceArea = it.boundingBox.width() * it.boundingBox.height()
-                val imageArea = bitmap.width * bitmap.height
-                val faceRatio = faceArea.toFloat() / imageArea
-
-                // Eye open check
-                val leftEyeOpen = it.leftEyeOpenProbability ?: 0f
-                val rightEyeOpen = it.rightEyeOpenProbability ?: 0f
-
-                // Combine quality factors
-                faceRatio > 0.1f &&
-                        leftEyeOpen > 0.7f &&
-                        rightEyeOpen > 0.7f
-            } ?: false
-        } else {
-            false
-        }
+    suspend fun assessFaceQuality(bitmap: Bitmap): FaceQualityResult {
+        return faceDetector.assessFaceQuality(bitmap)
     }
 
     /**
