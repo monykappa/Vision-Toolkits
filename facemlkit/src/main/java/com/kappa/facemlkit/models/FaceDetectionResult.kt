@@ -37,7 +37,7 @@ enum class QualityIssue {
     TOO_SMALL,
     EYES_CLOSED,
     FACE_TOO_DARK,
-    FACE_NOT_CENTERED,
+//    FACE_NOT_CENTERED,
     MULTIPLE_FACES,
     NO_FACE_DETECTED,
     BLURRY_FACE,

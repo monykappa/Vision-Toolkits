@@ -91,12 +91,12 @@ internal class FaceQualityChecker {
                     (centerY - faceCenter.second).toDouble().pow(2)
         )
         val maxAllowedDistance = minOf(bitmap.width, bitmap.height) * 0.15
-        if (distanceFromCenter > maxAllowedDistance) {
-            Log.d(TAG, "Quality check failed: Face not centered")
-            issues.add(QualityIssue.FACE_NOT_CENTERED)
-            failureReason = "Face is not centered"
-            qualityScore -= 0.2f
-        }
+//        if (distanceFromCenter > maxAllowedDistance) {
+//            Log.d(TAG, "Quality check failed: Face not centered")
+//            issues.add(QualityIssue.FACE_NOT_CENTERED)
+//            failureReason = "Face is not centered"
+//            qualityScore -= 0.2f
+//        }
 
         // Blur detection with Laplacian
         val faceBitmap = ImageUtils.cropFaceTightly(bitmap, box)
