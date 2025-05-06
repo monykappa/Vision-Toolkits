@@ -7,18 +7,25 @@ import com.google.mlkit.vision.face.FaceLandmark
 import com.kappa.facemlkit.models.FaceQualityResult
 import com.kappa.facemlkit.models.QualityIssue
 import com.kappa.facemlkit.utils.ImageUtils
+import kotlin.math.abs
 import kotlin.math.sqrt
 
 /**
- * Utility class for checking face quality
+ * Utility class for checking face quality with stricter requirements
  * Internal class not exposed directly to SDK users
  */
 internal class FaceQualityChecker {
 
     private val TAG = "FaceQualityChecker"
 
-    /**
-     * Checks comprehensive quality metrics for the face
+    // Configurable thresholds for quality checks - increased strictness
+    private val MIN_FACE_SIZE_RATIO = 0.15f       // Increased from 0.10f
+    private val MAX_HEAD_ANGLE = 10.0f            // Decreased from 15.0f
+    private val MIN_EYE_OPEN_PROB = 0.7f          // Increased from 0.l
+    private val MIN_SHARPNESS_THRESHOLD = 24.0    // Increased from 20.0
+
+    /**ll
+     * Checks comprehensive quality metrics for the face with stricter requirements
      *
      * @param face ML Kit face object
      * @param bitmap Original image containing the face
@@ -29,63 +36,88 @@ internal class FaceQualityChecker {
         var failureReason: String? = null
         var qualityScore = 1.0f
 
-        // Check face size ratio
+        // Check face size ratio (STRICTER)
         val box = face.boundingBox
         val faceArea = box.width() * box.height()
         val imageArea = bitmap.width * bitmap.height
         val faceSizeRatio = faceArea.toFloat() / imageArea
 
-        if (faceSizeRatio < 0.10f) {
-            Log.d(TAG, "Quality check failed: Face size ratio ($faceSizeRatio) is too small (< 0.10)")
+        if (faceSizeRatio < MIN_FACE_SIZE_RATIO) {
+            Log.d(TAG, "Quality check failed: Face size ratio ($faceSizeRatio) is too small (< $MIN_FACE_SIZE_RATIO)")
             issues.add(QualityIssue.TOO_SMALL)
             failureReason = "Face is too small"
             qualityScore -= 0.3f
         }
         Log.d(TAG, "Face size ratio: $faceSizeRatio")
 
-        // Check face orientation
+        // Check face orientation (STRICTER)
         val angleY = face.headEulerAngleY
         val angleZ = face.headEulerAngleZ
-        if (kotlin.math.abs(angleY) > 15 || kotlin.math.abs(angleZ) > 15) {
-            Log.d(TAG, "Quality check failed: Head orientation (Y=$angleY, Z=$angleZ) is not front-facing")
+        if (abs(angleY) > MAX_HEAD_ANGLE || abs(angleZ) > MAX_HEAD_ANGLE) {
+            Log.d(TAG, "Quality check failed: Head orientation (Y=$angleY, Z=$angleZ) is not properly front-facing")
             issues.add(QualityIssue.FACE_NOT_FRONT_FACING)
-            failureReason = "Face is not front-facing"
+            failureReason = "Face is not properly front-facing"
             qualityScore -= 0.25f
         }
         Log.d(TAG, "Head orientation: Y=$angleY, Z=$angleZ")
 
-        // Check if eyes are open
+        // Check if eyes are open (STRICTER)
         val leftEyeOpenProb = face.leftEyeOpenProbability
         val rightEyeOpenProb = face.rightEyeOpenProbability
-        if (leftEyeOpenProb == null || rightEyeOpenProb == null || leftEyeOpenProb < 0.5f || rightEyeOpenProb < 0.5f) {
-            Log.d(TAG, "Quality check failed: Eyes are not open (Left=$leftEyeOpenProb, Right=$rightEyeOpenProb)")
+        if (leftEyeOpenProb == null || rightEyeOpenProb == null ||
+            leftEyeOpenProb < MIN_EYE_OPEN_PROB || rightEyeOpenProb < MIN_EYE_OPEN_PROB) {
+            Log.d(TAG, "Quality check failed: Eyes are not fully open (Left=$leftEyeOpenProb, Right=$rightEyeOpenProb)")
             issues.add(QualityIssue.EYES_CLOSED)
-            failureReason = "Eyes are not open"
+            failureReason = "Eyes are not fully open"
             qualityScore -= 0.2f
         }
         Log.d(TAG, "Eye openness: Left=$leftEyeOpenProb, Right=$rightEyeOpenProb")
 
-        // Check for key landmarks
+        // Check for key landmarks (MORE COMPREHENSIVE)
         val leftEye = face.getLandmark(FaceLandmark.LEFT_EYE)
         val rightEye = face.getLandmark(FaceLandmark.RIGHT_EYE)
         val noseBase = face.getLandmark(FaceLandmark.NOSE_BASE)
-        if (leftEye == null || rightEye == null || noseBase == null) {
-            Log.d(TAG, "Quality check failed: Key facial landmarks not detected")
+        val mouthBottom = face.getLandmark(FaceLandmark.MOUTH_BOTTOM)
+        val mouthLeft = face.getLandmark(FaceLandmark.MOUTH_LEFT)
+        val mouthRight = face.getLandmark(FaceLandmark.MOUTH_RIGHT)
+
+        if (leftEye == null || rightEye == null || noseBase == null ||
+            mouthBottom == null || mouthLeft == null || mouthRight == null) {
+            Log.d(TAG, "Quality check failed: Complete facial landmarks not detected")
             issues.add(QualityIssue.KEY_LANDMARKS_MISSING)
-            failureReason = "Key facial features not detected"
+            failureReason = "Complete facial features not detected"
             qualityScore -= 0.25f
         }
-        Log.d(TAG, "Key landmarks detected: ${leftEye != null && rightEye != null && noseBase != null}")
+        Log.d(TAG, "Complete landmarks detected: ${leftEye != null && rightEye != null && noseBase != null && mouthBottom != null}")
 
-        // Check image sharpness
+        // Check face is centered in the image
+        val centerX = bitmap.width / 2
+        val centerY = bitmap.height / 2
+        val faceCenter = face.boundingBox.let {
+            Pair(it.exactCenterX().toInt(), it.exactCenterY().toInt())
+        }
+        val distanceFromCenter = sqrt(
+            (centerX - faceCenter.first).toDouble().pow(2) +
+                    (centerY - faceCenter.second).toDouble().pow(2)
+        )
+        val maxAllowedDistance = minOf(bitmap.width, bitmap.height) * 0.15
+
+        if (distanceFromCenter > maxAllowedDistance) {
+            Log.d(TAG, "Quality check failed: Face is not centered in the image")
+            issues.add(QualityIssue.FACE_NOT_CENTERED)
+            failureReason = "Face is not centered in the image"
+            qualityScore -= 0.2f
+        }
+
+        // Check image sharpness (STRICTER)
         val faceBitmap = ImageUtils.cropFaceTightly(bitmap, box)
         if (faceBitmap != null) {
             val sharpness = computeSobelSharpness(faceBitmap)
-            val sharpnessThreshold = 20.0
+            val sharpnessThreshold = MIN_SHARPNESS_THRESHOLD
             if (sharpness < sharpnessThreshold) {
                 Log.d(TAG, "Quality check failed: Image is blurry (Sobel sharpness=$sharpness, threshold=$sharpnessThreshold)")
                 issues.add(QualityIssue.BLURRY_FACE)
-                failureReason = "Image is blurry"
+                failureReason = "Image is too blurry"
                 qualityScore -= 0.25f
             }
             Log.d(TAG, "Image sharpness: $sharpness (threshold=$sharpnessThreshold)")
@@ -169,4 +201,9 @@ internal class FaceQualityChecker {
 
         return if (count > 0) sum / count else 0.0
     }
+
+    /**
+     * Extension function for Double.pow
+     */
+    private fun Double.pow(exponent: Int): Double = Math.pow(this, exponent.toDouble())
 }

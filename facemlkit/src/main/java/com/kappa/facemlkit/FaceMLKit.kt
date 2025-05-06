@@ -5,19 +5,15 @@ import android.graphics.Bitmap
 import com.kappa.facemlkit.detector.FaceDetector
 import com.kappa.facemlkit.models.FaceDetectionResult
 import com.kappa.facemlkit.models.FaceQualityResult
-import com.google.mlkit.vision.face.Face
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /**
  * FaceMLKit - Main entry point for the face detection and processing SDK
- *
- * This class provides a simplified interface for:
- * - Face detection in images
- * - Largest face extraction and preprocessing
- * - Face quality assessment
  */
 class FaceMLKit private constructor(context: Context) {
 
@@ -29,9 +25,6 @@ class FaceMLKit private constructor(context: Context) {
 
         /**
          * Get singleton instance of FaceMLKit
-         *
-         * @param context Application context
-         * @return FaceMLKit instance
          */
         fun getInstance(context: Context): FaceMLKit {
             return instance ?: synchronized(this) {
@@ -41,40 +34,25 @@ class FaceMLKit private constructor(context: Context) {
     }
 
     /**
-     * Detect faces in the provided bitmap (callback version)
-     *
-     * @param bitmap Input image
-     * @param callback Callback function that receives the list of detected faces
+     * Detect faces in the provided bitmap (callback)
      */
     fun detectFaces(bitmap: Bitmap, callback: (FaceDetectionResult) -> Unit) {
         coroutineScope.launch {
-            val result = detectFaces(bitmap)
+            val result = faceDetector.detectFaces(bitmap)
             withContext(Dispatchers.Main) {
-                callback(result)
+                callback(
+                    FaceDetectionResult(
+                        success = result.isNotEmpty(),
+                        faces = result,
+                        message = if (result.isEmpty()) "No faces detected" else "${result.size} faces detected"
+                    )
+                )
             }
         }
     }
 
     /**
-     * Detect faces in the provided bitmap (suspend function version)
-     *
-     * @param bitmap Input image
-     * @return FaceDetectionResult with detected faces
-     */
-    suspend fun detectFaces(bitmap: Bitmap): FaceDetectionResult {
-        val faces = faceDetector.detectFaces(bitmap)
-        return FaceDetectionResult(
-            success = faces.isNotEmpty(),
-            faces = faces,
-            message = if (faces.isEmpty()) "No faces detected" else "${faces.size} faces detected"
-        )
-    }
-
-    /**
-     * Extract the largest face from the input image (callback version)
-     *
-     * @param bitmap Input image
-     * @param callback Callback function that receives the processed face bitmap
+     * Extract the largest face from the input image (callback)
      */
     fun extractLargestFace(bitmap: Bitmap, callback: (Bitmap?) -> Unit) {
         coroutineScope.launch {
@@ -86,10 +64,7 @@ class FaceMLKit private constructor(context: Context) {
     }
 
     /**
-     * Extract the largest face from the input image with quality check (callback version)
-     *
-     * @param bitmap Input image
-     * @param callback Callback function that receives the processed face bitmap and quality result
+     * Extract the largest face from the input image with quality check (callback)
      */
     fun extractLargestFaceWithQuality(bitmap: Bitmap, callback: (Bitmap?, FaceQualityResult) -> Unit) {
         coroutineScope.launch {
@@ -101,54 +76,36 @@ class FaceMLKit private constructor(context: Context) {
     }
 
     /**
-     * Extract the largest face from the input image (suspend function version)
-     *
-     * @param bitmap Input image
-     * @return The processed face bitmap or null if no face detected
+     * Suspend version of extractLargestFace, used internally by coroutine-based consumers
      */
     suspend fun extractLargestFace(bitmap: Bitmap): Bitmap? {
         return faceDetector.extractLargestFace(bitmap).faceBitmap
     }
 
     /**
-     * Extract the largest face from the input image with quality assessment (suspend function version)
-     *
-     * @param bitmap Input image
-     * @return Pair containing the processed face bitmap and quality assessment
+     * Suspend version of detectFaces, used internally by coroutine-based consumers
      */
-    suspend fun extractLargestFaceWithQuality(bitmap: Bitmap): Pair<Bitmap?, FaceQualityResult> {
-        val result = faceDetector.extractLargestFace(bitmap)
-        return Pair(result.faceBitmap, result.qualityResult)
+    suspend fun detectFaces(bitmap: Bitmap): FaceDetectionResult {
+        val faces = faceDetector.detectFaces(bitmap)
+        return FaceDetectionResult(
+            success = faces.isNotEmpty(),
+            faces = faces,
+            message = if (faces.isEmpty()) "No faces detected" else "${faces.size} faces detected"
+        )
     }
 
     /**
-     * Assess if the face meets quality criteria (callback version)
-     *
-     * @param bitmap Input image with face
-     * @param callback Callback with quality assessment result
+     * Suspend version of extractLargestFaceWithQuality
      */
-    fun assessFaceQuality(bitmap: Bitmap, callback: (FaceQualityResult) -> Unit) {
-        coroutineScope.launch {
-            val result = assessFaceQuality(bitmap)
-            withContext(Dispatchers.Main) {
-                callback(result)
+    suspend fun extractLargestFaceWithQuality(bitmap: Bitmap): Pair<Bitmap?, FaceQualityResult> =
+        suspendCancellableCoroutine { continuation ->
+            extractLargestFaceWithQuality(bitmap) { faceBitmap, qualityResult ->
+                continuation.resume(Pair(faceBitmap, qualityResult))
             }
         }
-    }
-
-    /**
-     * Assess if the face meets quality criteria (suspend function version)
-     *
-     * @param bitmap Input image with face
-     * @return Comprehensive quality assessment result
-     */
-    suspend fun assessFaceQuality(bitmap: Bitmap): FaceQualityResult {
-        return faceDetector.assessFaceQuality(bitmap)
-    }
 
     /**
      * Release ML Kit detector resources
-     * Call this method when the SDK is no longer needed
      */
     fun close() {
         faceDetector.close()
