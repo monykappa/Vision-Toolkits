@@ -34,13 +34,13 @@ data class FaceQualityResult(
  * Enum representing possible face quality issues
  */
 enum class QualityIssue {
-    TOO_SMALL,
-    EYES_CLOSED,
-    FACE_TOO_DARK,
+//    TOO_SMALL,
+//    EYES_CLOSED,
+//    FACE_TOO_DARK,
 //    FACE_NOT_CENTERED,
     MULTIPLE_FACES,
     NO_FACE_DETECTED,
     BLURRY_FACE,
-    FACE_NOT_FRONT_FACING,
-    KEY_LANDMARKS_MISSING
+//    FACE_NOT_FRONT_FACING,
+//    KEY_LANDMARKS_MISSING
 }
