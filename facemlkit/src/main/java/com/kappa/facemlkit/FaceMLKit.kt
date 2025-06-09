@@ -75,12 +75,7 @@ class FaceMLKit private constructor(context: Context) {
         }
     }
 
-    /**
-     * Suspend version of extractLargestFace, used internally by coroutine-based consumers
-     */
-    suspend fun extractLargestFace(bitmap: Bitmap): Bitmap? {
-        return faceDetector.extractLargestFace(bitmap).faceBitmap
-    }
+
 
     /**
      * Suspend version of detectFaces, used internally by coroutine-based consumers
@@ -92,6 +87,12 @@ class FaceMLKit private constructor(context: Context) {
             faces = faces,
             message = if (faces.isEmpty()) "No faces detected" else "${faces.size} faces detected"
         )
+    }
+    /**
+     * Suspend version of extractLargestFace, used internally by coroutine-based consumers
+     */
+    suspend fun extractLargestFace(bitmap: Bitmap): Bitmap? {
+        return faceDetector.extractLargestFace(bitmap).faceBitmap
     }
 
     /**

@@ -8,7 +8,6 @@ import com.kappa.facemlkit.models.QualityIssue
 import com.kappa.facemlkit.utils.ImageUtils
 import kotlin.math.abs
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.pow
 
 /**
@@ -30,7 +29,13 @@ internal class FaceQualityChecker {
      * @param truncatedCdf Whether to truncate CDF (default false)
      * @return Processed grayscale array
      */
-    private fun imageAgcwd(gray: Array<DoubleArray>, width: Int, height: Int, a: Double = 0.25, truncatedCdf: Boolean = false): Array<DoubleArray> {
+    private fun imageAgcwd(
+        gray: Array<DoubleArray>,
+        width: Int,
+        height: Int,
+        a: Double = 0.25,
+        truncatedCdf: Boolean = false
+    ): Array<DoubleArray> {
         // Compute histogram
         val hist = IntArray(256)
         for (y in 0 until height) {
@@ -74,7 +79,8 @@ internal class FaceQualityChecker {
         for (y in 0 until height) {
             for (x in 0 until width) {
                 val intensity = gray[y][x].toInt()
-                result[y][x] = (255 * (intensity / 255.0).pow(inverseCdf[intensity])).toInt().toDouble()
+                result[y][x] =
+                    (255 * (intensity / 255.0).pow(inverseCdf[intensity])).toInt().toDouble()
             }
         }
         return result
@@ -83,7 +89,11 @@ internal class FaceQualityChecker {
     /**
      * Processes bright images by inverting, applying AGCWD, and inverting back.
      */
-    private fun processBright(gray: Array<DoubleArray>, width: Int, height: Int): Array<DoubleArray> {
+    private fun processBright(
+        gray: Array<DoubleArray>,
+        width: Int,
+        height: Int
+    ): Array<DoubleArray> {
         val negative = Array(height) { y -> DoubleArray(width) { x -> 255.0 - gray[y][x] } }
         val agcwd = imageAgcwd(negative, width, height, a = 0.25, truncatedCdf = false)
         return Array(height) { y -> DoubleArray(width) { x -> 255.0 - agcwd[y][x] } }
@@ -92,7 +102,11 @@ internal class FaceQualityChecker {
     /**
      * Processes dimmed images with AGCWD.
      */
-    private fun processDimmed(gray: Array<DoubleArray>, width: Int, height: Int): Array<DoubleArray> {
+    private fun processDimmed(
+        gray: Array<DoubleArray>,
+        width: Int,
+        height: Int
+    ): Array<DoubleArray> {
         return imageAgcwd(gray, width, height, a = 0.55, truncatedCdf = true)
     }
 
@@ -131,10 +145,12 @@ internal class FaceQualityChecker {
                 Log.d(TAG, "Applying dimmed image processing")
                 processDimmed(gray, width, height)
             }
+
             t > threshold -> {
                 Log.d(TAG, "Applying bright image processing")
                 processBright(gray, width, height)
             }
+
             else -> {
                 Log.d(TAG, "No brightness adjustment needed")
                 gray
@@ -183,8 +199,11 @@ internal class FaceQualityChecker {
             val laplacian1 = computeLaplacian1Sharpness(processedBitmap)
             val laplacian2 = computeLaplacian2Sharpness(processedBitmap)
 
-            Log.d(TAG, "After brightness($brightnessOffset): Lap1=$laplacian1 (thr=$LAPLACIAN1_THRESHOLD), " +
-                    "Lap2=$laplacian2 (thr=$LAPLACIAN2_THRESHOLD)")
+            Log.d(
+                TAG,
+                "After brightness($brightnessOffset): Lap1=$laplacian1 (thr=$LAPLACIAN1_THRESHOLD), " +
+                        "Lap2=$laplacian2 (thr=$LAPLACIAN2_THRESHOLD)"
+            )
 
             // Use standard Laplacian1 for pass/fail
             if (laplacian1 < LAPLACIAN1_THRESHOLD) {

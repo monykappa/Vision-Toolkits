@@ -1,7 +1,6 @@
 package com.kappa.facemlkit.detector
 
 import android.graphics.Bitmap
-import android.graphics.Rect
 import android.util.Log
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
@@ -150,47 +149,6 @@ internal class FaceDetector {
             }
         }
     }
-
-    /**
-     * Check the quality of the largest face in an image
-     *
-     * @param bitmap Input image
-     * @return Face quality assessment result
-     */
-    suspend fun assessFaceQuality(bitmap: Bitmap): FaceQualityResult = withContext(Dispatchers.IO) {
-        try {
-            val faces = detectFaces(bitmap)
-
-            if (faces.isEmpty()) {
-                return@withContext FaceQualityResult(
-                    isGoodQuality = false,
-                    qualityScore = 0.0f,
-                    issues = listOf(com.kappa.facemlkit.models.QualityIssue.NO_FACE_DETECTED),
-                    failureReason = "No face detected in the image"
-                )
-            }
-
-            val largestFace = faces.maxByOrNull {
-                it.boundingBox.width() * it.boundingBox.height()
-            } ?: return@withContext FaceQualityResult(
-                isGoodQuality = false,
-                qualityScore = 0.0f,
-                issues = listOf(com.kappa.facemlkit.models.QualityIssue.NO_FACE_DETECTED),
-                failureReason = "No face detected in the image"
-            )
-
-            faceQualityChecker.checkFaceQuality(largestFace, bitmap)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error assessing face quality: ${e.message}", e)
-            FaceQualityResult(
-                isGoodQuality = false,
-                qualityScore = 0.0f,
-                issues = listOf(com.kappa.facemlkit.models.QualityIssue.BLURRY_FACE),
-                failureReason = "Error during quality assessment: ${e.message}"
-            )
-        }
-    }
-
     /**
      * Release ML Kit detector
      */
