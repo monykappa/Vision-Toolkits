@@ -26,6 +26,7 @@ data class FaceDetectionResult(
 data class FaceQualityResult(
     val isGoodQuality: Boolean,
     val qualityScore: Float,
+    val laplacianRawScore: Double = 0.0,
     val issues: List<QualityIssue> = emptyList(),
     val failureReason: String? = null
 )

@@ -18,7 +18,7 @@ import kotlin.math.pow
 internal class FaceQualityChecker {
 
     private val TAG = "FaceQualityChecker"
-    private val LAPLACIAN1_THRESHOLD = 150.0 // Standard Laplacian threshold
+    private val LAPLACIAN1_THRESHOLD = 80.0 // Standard Laplacian threshold
     private val LAPLACIAN2_THRESHOLD = 7.0   // Modified Laplacian threshold (experimental)
 
     /**
@@ -165,6 +165,7 @@ internal class FaceQualityChecker {
         val issues = mutableListOf<QualityIssue>()
         var failureReason: String? = null
         var qualityScore = 1.0f
+        var laplacianRawScore = 0.0
 
         // Crop the face region
         val box = face.boundingBox

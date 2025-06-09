@@ -1,104 +1,125 @@
-# 📷💥 Android SDKs Documentation
+# FaceMLKit
+
+A powerful Android SDK for face detection and quality assessment using Google ML Kit. FaceMLKit provides easy-to-use APIs for detecting faces, extracting face regions, and assessing face quality with advanced image processing techniques.
+
+## Features
+
+- **Face Detection**: Accurate face detection using Google ML Kit
+- **Face Extraction**: Extract and crop the largest face from images
+- **Quality Assessment**: Advanced face quality checking with blur detection
+- **Image Processing**: Automatic brightness adjustment and image enhancement
+- **Fallback Processing**: Robust handling when no faces are detected
+- **Coroutine Support**: Both callback-based and suspend function APIs
 
 ## Installation
 
-Add to your app's `build.gradle`:
+Add the following dependency to your `build.gradle` file:
 
 ```gradle
 dependencies {
     implementation(files("libs/facemlkit-release.aar"))
-    implementation(files("libs/imageconverter-release.aar"))
+    
+    // Required ML Kit dependencies
+    implementation 'com.google.mlkit:face-detection:16.1.5'
 }
 ```
 
-## 👱🏼 FaceMLKit
+## API Reference
 
-A simplified Android SDK for face detection and processing using ML Kit.
+### FaceMLKit Class
 
-### Overview
+#### getInstance(context: Context): FaceMLKit
+Get singleton instance of FaceMLKit.
 
-FaceMLKit provides an easy-to-use interface for:
-- Detecting faces in images
-- Extracting the largest face
-- Assessing face quality
+#### detectFaces(bitmap: Bitmap, callback: (FaceDetectionResult) -> Unit)
+Detect all faces in the provided bitmap and return results via callback.
 
-### Usage
+#### detectFaces(bitmap: Bitmap): FaceDetectionResult
+Suspend version of face detection that returns all detected faces.
 
+#### extractLargestFace(bitmap: Bitmap, callback: (Bitmap?) -> Unit)
+Find the largest face in the image, crop it, resize to 224x224, and return via callback.
+
+#### extractLargestFace(bitmap: Bitmap): Bitmap?
+Suspend version that extracts and returns the largest face as a 224x224 bitmap.
+
+#### extractLargestFaceWithQuality(bitmap: Bitmap, callback: (Bitmap?, FaceQualityResult) -> Unit)
+Extract the largest face and perform quality assessment, returning both the face bitmap and quality results via callback.
+
+#### extractLargestFaceWithQuality(bitmap: Bitmap): Pair<Bitmap?, FaceQualityResult>
+Suspend version that extracts the largest face and returns both the bitmap and quality assessment.
+
+#### close()
+Release ML Kit detector resources and clean up.
+
+## Data Models
+
+### FaceDetectionResult
 ```kotlin
-// Initialize
+data class FaceDetectionResult(
+    val success: Boolean,           // Whether detection found any faces
+    val faces: List<Face>,          // List of ML Kit Face objects
+    val message: String             // Status message about detection result
+)
+```
+
+### FaceQualityResult
+```kotlin
+data class FaceQualityResult(
+    val isGoodQuality: Boolean,     // Whether face passes quality checks
+    val qualityScore: Float,        // Quality score from 0.0 to 1.0
+    val laplacianRawScore: Double,  // Raw sharpness measurement
+    val issues: List<QualityIssue>, // List of detected problems
+    val failureReason: String?      // Description of quality failure
+)
+```
+
+### QualityIssue
+```kotlin
+enum class QualityIssue {
+    MULTIPLE_FACES,      // More than one face detected
+    NO_FACE_DETECTED,    // No face found in image
+    UNDEREXPOSED,        // Image is too dark
+    BLURRY_FACE         // Face lacks sharpness
+}
+```
+
+## Usage Examples
+
+### Basic Face Detection
+```kotlin
 val faceMLKit = FaceMLKit.getInstance(context)
 
-// Detect faces
+// Callback version
 faceMLKit.detectFaces(bitmap) { result ->
     if (result.success) {
-        println("Found ${result.faces.size} faces")
+        Log.d("Faces", "Found ${result.faces.size} faces")
     }
 }
 
-// Extract largest face
-faceMLKit.extractLargestFace(bitmap) { faceBitmap ->
-    // Use the extracted face
-}
-
-// Assess quality
-faceMLKit.assessFaceQuality(bitmap) { isHighQuality ->
-    if (isHighQuality) {
-        println("Good quality face")
-    }
-}
-
-// Clean up
-faceMLKit.close()
+// Coroutine version
+val result = faceMLKit.detectFaces(bitmap)
 ```
 
-### Features
-
-✅ Face detection with bounding boxes  
-✅ Automatic face extraction  
-✅ Quality assessment based on eye openness  
-✅ Automatic 224x224 standard cropping  
-✅ Coroutine support  
-
----
-
-## 🖼️ ImageConverter
-
-Android SDK for efficient YUV to RGB image conversion using RenderScript.
-
-### Overview
-
-ImageConverter efficiently converts CameraX ImageProxy (YUV format) to Android Bitmap (RGB) with GPU acceleration.
-
-### Usage
-
+### Face Extraction
 ```kotlin
-// Initialize
-val imageConverter = ImageConverter.getInstance(context)
+// Extract face only
+faceMLKit.extractLargestFace(bitmap) { faceBitmap ->
+    faceBitmap?.let { 
+        // Use 224x224 face bitmap
+    }
+}
 
-// Convert in CameraX analyzer
-class ImageAnalyzer : ImageAnalysis.Analyzer {
-    override fun analyze(imageProxy: ImageProxy) {
-        val bitmap = imageConverter.convertToBitmap(imageProxy)
-        
-        bitmap?.let {
-            // Use the bitmap
-        }
-        
-        imageProxy.close()
+// Extract with quality check
+faceMLKit.extractLargestFaceWithQuality(bitmap) { faceBitmap, quality ->
+    if (quality.isGoodQuality) {
+        // Use high quality face
     }
 }
 ```
 
-### Features
+## Requirements
 
-✅ YUV to RGB conversion  
-✅ RenderScript GPU acceleration  
-✅ Automatic image rotation  
-✅ Thread-safe singleton pattern  
-✅ Memory efficient processing  
-
----
-
-## License
-
-MIT License
+- Android API level 21+
+- Google ML Kit Face Detection
+- Kotlin Coroutines support
